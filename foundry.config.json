@@ -1,0 +1,12 @@
+{
+  "foundryUrl": "https://buildthefuture.usw-22.palantirfoundry.com",
+  "site": {
+    "application": "ri.third-party-applications.main.application.0cb7c86d-0a1b-42ff-9b3d-75e2b0b28caa",
+    "directory": "./dist",
+    "autoVersion": {
+      "type": "git-describe",
+      "tagPrefix": ""
+    },
+    "uploadOnly": false
+  }
+}
