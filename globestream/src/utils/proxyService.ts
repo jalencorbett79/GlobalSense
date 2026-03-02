@@ -52,9 +52,26 @@ export async function connectToProxy(
   onStatsUpdate?: (stats: ConnectionState) => void
 ): Promise<ConnectionState> {
   // Check that the backend has alive proxies for this country
-  const res = await fetch(`${PROXY_API}/api/proxy/servers/${country.code}`);
+  let res: Response;
+  try {
+    res = await fetch(`${PROXY_API}/api/proxy/servers/${country.code}`);
+  } catch {
+    throw new Error(
+      PROXY_API
+        ? `Cannot reach backend at ${PROXY_API}. Check that the backend service is running.`
+        : "Cannot reach backend API. If frontend and backend are separate services, set VITE_PROXY_API_URL to your backend URL."
+    );
+  }
+
   if (!res.ok) {
-    throw new Error(`Backend unreachable (${res.status})`);
+    if (res.status === 404) {
+      throw new Error(
+        PROXY_API
+          ? `Backend route not found (404). Verify ${PROXY_API}/api/proxy/servers/${country.code} exists.`
+          : "Backend route not found (404). The API server may not be running or routes are misconfigured."
+      );
+    }
+    throw new Error(`Backend error (${res.status})`);
   }
 
   const data = await res.json();
@@ -127,11 +144,18 @@ export async function proxyFetch(
     throw new Error("Not connected. Pick a country first.");
   }
 
-  const res = await fetch(`${PROXY_API}/api/proxy/fetch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, countryCode: cc }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${PROXY_API}/api/proxy/fetch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, countryCode: cc }),
+    });
+  } catch {
+    throw new Error(
+      "Cannot reach proxy API. Check that the backend service is running."
+    );
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
