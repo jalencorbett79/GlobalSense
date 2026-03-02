@@ -15,6 +15,7 @@ import https from 'node:https';
 import { URL, fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
+import { UAParser } from 'ua-parser-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -143,6 +144,79 @@ function fetchViaProxy(proxy, targetUrl, timeout = 30000) {
     }
   });
 }
+
+// ─── Session Info ────────────────────────────────────────────────────
+
+function maskIp(ip) {
+  if (!ip) return 'Unknown';
+  // Handle IPv6-mapped IPv4 (e.g. ::ffff:192.168.1.1)
+  const cleaned = ip.replace(/^::ffff:/, '');
+  const parts = cleaned.split('.');
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.xxx.xxx`;
+  }
+  // IPv6: mask last segments
+  const segments = cleaned.split(':');
+  if (segments.length > 2) {
+    return `${segments[0]}:${segments[1]}:xxxx:xxxx`;
+  }
+  return 'Unknown';
+}
+
+/**
+ * GET /api/session-info
+ * Returns masked IP, approximate location, device info, and timestamp.
+ */
+app.get('/api/session-info', async (req, res) => {
+  try {
+    const rawIp =
+      (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+      req.socket.remoteAddress ||
+      '';
+    const maskedIp = maskIp(rawIp);
+
+    // Parse user-agent for device info
+    const ua = req.headers['user-agent'] || '';
+    const parser = new UAParser(ua);
+    const browser = parser.getBrowser();
+    const os = parser.getOS();
+    const deviceName = `${browser.name || 'Unknown Browser'} on ${os.name || 'Unknown OS'}${os.version ? ' ' + os.version : ''}`;
+
+    // Geolocation lookup via ipapi.co (free, no key required)
+    let location = 'Unknown';
+    try {
+      const lookupIp = rawIp.replace(/^::ffff:/, '') || '';
+      const isValidIp = /^[\da-fA-F.:]+$/.test(lookupIp);
+      const geoUrl = isValidIp && lookupIp !== '127.0.0.1' && lookupIp !== '::1'
+        ? `https://ipapi.co/${lookupIp}/json/`
+        : 'https://ipapi.co/json/';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const geoRes = await fetch(geoUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (geoRes.ok) {
+        const geo = await geoRes.json();
+        if (geo.city && geo.country_name) {
+          location = `${geo.city}, ${geo.country_name}`;
+        } else if (geo.country_name) {
+          location = geo.country_name;
+        }
+      }
+    } catch {
+      // Geolocation failed — use fallback
+    }
+
+    res.json({
+      maskedIp,
+      location,
+      device: deviceName,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[Session Info Error]', err.message);
+    res.status(500).json({ error: 'Failed to retrieve session info' });
+  }
+});
 
 // ─── API Routes ──────────────────────────────────────────────────────
 
