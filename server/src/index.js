@@ -35,6 +35,19 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
+// ─── Health Check (standalone, for Render + quick connectivity testing) ─
+
+app.get('/health', (_req, res) => {
+  const proxies = getAllProxies();
+  const alive = proxies.filter((p) => p.alive).length;
+  res.json({
+    status: 'OK',
+    service: 'GlobeStream Proxy Gateway',
+    version: '2.0.0',
+    proxies: { total: proxies.length, alive },
+  });
+});
+
 // ─── Fetch through proxy (core function) ─────────────────────────────
 
 function fetchViaProxy(proxy, targetUrl, timeout = 30000) {
