@@ -130,3 +130,34 @@ export function updateProxy(id, update) {
   const proxy = proxyNodes.find((p) => p.id === id);
   if (proxy) Object.assign(proxy, update);
 }
+
+// ─── Dynamic proxy management (used by geonode.js) ──────────────────
+
+/**
+ * Add an array of proxies, skipping duplicates (by host:port).
+ */
+export function addProxies(proxies) {
+  const existing = new Set(proxyNodes.map((p) => `${p.host}:${p.port}`));
+  let added = 0;
+  for (const proxy of proxies) {
+    const key = `${proxy.host}:${proxy.port}`;
+    if (!existing.has(key)) {
+      proxyNodes.push(proxy);
+      existing.add(key);
+      added++;
+    }
+  }
+  return added;
+}
+
+/**
+ * Remove all dynamically-added proxies (those with source === 'geonode').
+ * Static/hardcoded proxies are kept.
+ */
+export function clearDynamicProxies() {
+  for (let i = proxyNodes.length - 1; i >= 0; i--) {
+    if (proxyNodes[i].source === 'geonode') {
+      proxyNodes.splice(i, 1);
+    }
+  }
+}
