@@ -1,20 +1,45 @@
-# Render Blueprint — single deploy: frontend + backend
-# Connect your repo → Render reads this → everything deploys.
-# One URL serves both the app and the proxy API.
+# Render Blueprint — Two-service deployment
+# Backend: Node.js web service (Express API + proxy gateway)
+# Frontend: Static site (React/Vite SPA)
+#
+# The frontend's VITE_PROXY_API_URL is set at build time via fromService,
+# so it knows the full backend URL for API calls.
 
 services:
+  # ─── Backend: Proxy Gateway API ───────────────────────────────────
   - type: web
-    name: globestream
+    name: globestream-api
     runtime: node
     region: oregon
     rootDir: server
-    buildCommand: npm install && cd ../globestream && npm install && npx vite build
+    buildCommand: npm install
     startCommand: node src/index.js
     plan: free
     envVars:
       - key: NODE_ENV
         value: production
-      - key: TMDB_KEY
-        sync: false
-    healthCheckPath: /api/proxy/health
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # ─── Frontend: Static Site ────────────────────────────────────────
+  - type: web
+    name: globestream
+    runtime: static
+    region: oregon
+    rootDir: globestream
+    buildCommand: npm install && npx vite build
+    staticPublishPath: dist
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_PROXY_API_URL
+        fromService:
+          name: globestream-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
     autoDeploy: true
