@@ -21,7 +21,10 @@ const DEFAULT_POSTER = 'https://images.unsplash.com/photo-1536440136628-849c177e
 
 function tmdbUrl(path, params = {}) {
   const key = process.env.TMDB_KEY;
-  if (!key) return null;
+  if (!key) {
+    console.warn('[TMDB] TMDB_KEY environment variable is not configured');
+    return null;
+  }
   const qs = new URLSearchParams({ api_key: key, ...params }).toString();
   return `${TMDB_BASE}${path}?${qs}`;
 }
