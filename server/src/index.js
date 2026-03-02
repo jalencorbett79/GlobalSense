@@ -27,6 +27,7 @@ import {
 } from './proxies.js';
 import { startHealthChecker } from './health.js';
 import { startGeonodeFetcher, fetchGeonodeProxies } from './geonode.js';
+import { fetchViaProviders, getEnabledProviders } from './providers.js';
 import tmdbRoutes from './routes/tmdb.js';
 
 const app = express();
@@ -48,6 +49,7 @@ app.get('/health', (_req, res) => {
     service: 'GlobeStream Proxy Gateway',
     version: '2.0.0',
     proxies: { total: proxies.length, alive },
+    providers: getEnabledProviders(),
   });
 });
 
@@ -256,6 +258,7 @@ app.get('/api/proxy/health', (_req, res) => {
     total: proxies.length,
     alive,
     dead: proxies.length - alive,
+    providers: getEnabledProviders(),
     proxies: proxies.map((p) => ({
       id: p.id,
       host: `${p.host}:${p.port}`,
@@ -284,6 +287,8 @@ app.post('/api/proxy/refresh', async (_req, res) => {
 /**
  * POST /api/proxy/fetch
  * Body: { url: string, countryCode: string }
+ *
+ * Tries direct proxies first, then falls back to API-based providers.
  */
 app.post('/api/proxy/fetch', async (req, res) => {
   const { url, countryCode } = req.body;
@@ -291,36 +296,63 @@ app.post('/api/proxy/fetch', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'Missing "url"' });
   if (!countryCode) return res.status(400).json({ error: 'Missing "countryCode"' });
 
+  // 1. Try direct proxy first
   const proxy = pickBestProxy(countryCode);
-  if (!proxy) {
-    return res.status(503).json({ error: `No alive proxies for ${countryCode}` });
+  if (proxy) {
+    try {
+      const start = Date.now();
+      const result = await fetchViaProxy(proxy, url);
+      const latency = Date.now() - start;
+
+      return res.json({
+        status: result.status,
+        contentType: result.headers?.['content-type'] || '',
+        body: result.body,
+        proxyUsed: {
+          id: proxy.id,
+          city: proxy.city,
+          countryCode: proxy.countryCode,
+          latency,
+        },
+      });
+    } catch (err) {
+      console.error(`[Fetch Error] Direct proxy ${proxy.id} → ${url}: ${err.message}`);
+      // Fall through to provider fallback
+    }
   }
 
+  // 2. Fallback: try API-based providers (ScraperAPI, Crawlbase, etc.)
   try {
     const start = Date.now();
-    const result = await fetchViaProxy(proxy, url);
-    const latency = Date.now() - start;
-
-    res.json({
-      status: result.status,
-      contentType: result.headers?.['content-type'] || '',
-      body: result.body,
-      proxyUsed: {
-        id: proxy.id,
-        city: proxy.city,
-        countryCode: proxy.countryCode,
-        latency,
-      },
-    });
+    const result = await fetchViaProviders(url, countryCode);
+    if (result) {
+      const latency = Date.now() - start;
+      return res.json({
+        status: result.status,
+        contentType: result.headers?.['content-type'] || '',
+        body: result.body,
+        proxyUsed: {
+          id: `provider-${result.providerUsed.toLowerCase()}`,
+          city: result.providerUsed,
+          countryCode,
+          latency,
+        },
+      });
+    }
   } catch (err) {
-    console.error(`[Fetch Error] ${proxy.id} → ${url}: ${err.message}`);
-    res.status(502).json({ error: 'Proxy request failed', detail: err.message });
+    console.error(`[Fetch Error] Providers → ${url}: ${err.message}`);
   }
+
+  res.status(503).json({
+    error: `No alive proxies or providers available for ${countryCode}`,
+  });
 });
 
 /**
  * GET /api/proxy/browse?url=...&country=...
  * Returns raw HTML through the proxy — for iframe embedding.
+ *
+ * Tries direct proxies first, then falls back to API-based providers.
  */
 app.get('/api/proxy/browse', async (req, res) => {
   const { url, country } = req.query;
@@ -329,33 +361,58 @@ app.get('/api/proxy/browse', async (req, res) => {
     return res.status(400).send('Missing url or country');
   }
 
+  // 1. Try direct proxy first
   const proxy = pickBestProxy(country);
-  if (!proxy) {
-    return res.status(503).send(`No proxies for ${country}`);
-  }
-
-  try {
-    const result = await fetchViaProxy(proxy, url);
-    const contentType = result.headers?.['content-type'] || 'text/html; charset=utf-8';
-
-    let body = result.body;
-
-    // Inject <base> tag so relative URLs resolve to the target origin
+  if (proxy) {
     try {
-      const parsed = new URL(url);
-      const baseTag = `<base href="${parsed.origin}/" target="_self">`;
-      body = body.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
-    } catch { /* not a valid URL, skip */ }
+      const result = await fetchViaProxy(proxy, url);
+      const contentType = result.headers?.['content-type'] || 'text/html; charset=utf-8';
 
-    res.set('Content-Type', contentType);
-    res.set('X-Proxy-Country', proxy.countryCode);
-    res.set('X-Proxy-City', proxy.city);
-    res.set('X-Proxy-Id', proxy.id);
-    res.send(body);
-  } catch (err) {
-    console.error(`[Browse Error] ${proxy.id} → ${url}: ${err.message}`);
-    res.status(502).send(`Proxy error: ${err.message}`);
+      let body = result.body;
+
+      // Inject <base> tag so relative URLs resolve to the target origin
+      try {
+        const parsed = new URL(url);
+        const baseTag = `<base href="${parsed.origin}/" target="_self">`;
+        body = body.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+      } catch { /* not a valid URL, skip */ }
+
+      res.set('Content-Type', contentType);
+      res.set('X-Proxy-Country', proxy.countryCode);
+      res.set('X-Proxy-City', proxy.city);
+      res.set('X-Proxy-Id', proxy.id);
+      return res.send(body);
+    } catch (err) {
+      console.error(`[Browse Error] Direct proxy ${proxy.id} → ${url}: ${err.message}`);
+      // Fall through to provider fallback
+    }
   }
+
+  // 2. Fallback: try API-based providers
+  try {
+    const result = await fetchViaProviders(url, country);
+    if (result) {
+      const contentType = result.headers?.['content-type'] || 'text/html; charset=utf-8';
+
+      let body = result.body;
+
+      try {
+        const parsed = new URL(url);
+        const baseTag = `<base href="${parsed.origin}/" target="_self">`;
+        body = body.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+      } catch { /* not a valid URL, skip */ }
+
+      res.set('Content-Type', contentType);
+      res.set('X-Proxy-Country', country);
+      res.set('X-Proxy-City', result.providerUsed);
+      res.set('X-Proxy-Id', `provider-${result.providerUsed.toLowerCase()}`);
+      return res.send(body);
+    }
+  } catch (err) {
+    console.error(`[Browse Error] Providers → ${url}: ${err.message}`);
+  }
+
+  res.status(503).send(`No proxies or providers available for ${country}`);
 });
 
 // ─── TMDB API Routes ─────────────────────────────────────────────────
@@ -392,10 +449,19 @@ if (existsSync(distPath)) {
 // ─── Start ───────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
+  const enabled = getEnabledProviders();
   console.log(`\n╔══════════════════════════════════════════╗`);
   console.log(`║   GlobeStream v2.0.0                     ║`);
   console.log(`║   Frontend + Proxy API on port ${String(PORT).padEnd(10)}║`);
-  console.log(`╚══════════════════════════════════════════╝\n`);
+  console.log(`╚══════════════════════════════════════════╝`);
+  if (enabled.length > 0) {
+    console.log(`\n[Providers] Enabled: ${enabled.join(', ')}`);
+  } else {
+    console.log(`\n[Providers] None configured. Set env vars to enable:`);
+    console.log(`  SCRAPERAPI_KEY, CRAWLBASE_TOKEN, WEBSCRAPINGAPI_KEY,`);
+    console.log(`  BRIGHTDATA_USERNAME + BRIGHTDATA_PASSWORD`);
+  }
+  console.log('');
 
   startHealthChecker();
   startGeonodeFetcher();
