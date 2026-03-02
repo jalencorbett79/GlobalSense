@@ -18,6 +18,10 @@ export default defineConfig({
       process.env.DEV_SERVER_DOMAIN != null
         ? [process.env.DEV_SERVER_DOMAIN]
         : undefined,
+    proxy: {
+      "/api": "http://localhost:3001",
+      "/health": "http://localhost:3001",
+    },
   },
   resolve: {
     alias: {
@@ -25,7 +29,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: resolve(__dirname, "dist"),
+    outDir: resolve(__dirname, "globestream", "dist"),
     emptyOutDir: true,
     sourcemap: false,
     rollupOptions: {

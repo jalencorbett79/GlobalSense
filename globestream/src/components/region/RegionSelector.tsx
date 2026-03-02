@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MapPin, Signal, Zap, Check } from 'lucide-react';
+import { Search, MapPin, Check } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { regionGroups, countries } from '../../utils/countries';
+import { getAvailableCountries } from '../../utils/proxyService';
 import { Country, Region } from '../../types';
 import './RegionSelector.css';
 
@@ -14,6 +15,13 @@ export default function RegionSelector({ onConnect }: RegionSelectorProps) {
   const { selectedCountry, recentCountries, connection } = useStore();
   const [search, setSearch] = useState('');
   const [activeRegion, setActiveRegion] = useState<Region | 'all'>('all');
+  const [availableCodes, setAvailableCodes] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getAvailableCountries()
+      .then((codes) => setAvailableCodes(new Set(codes)))
+      .catch(() => {/* backend unreachable — all countries show as unavailable */});
+  }, []);
 
   const filtered = useMemo(() => {
     let list = activeRegion === 'all' ? countries : countries.filter(c => c.region === activeRegion);
@@ -21,8 +29,14 @@ export default function RegionSelector({ onConnect }: RegionSelectorProps) {
       const q = search.toLowerCase();
       list = list.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
     }
+    // Sort countries with available proxies first
+    list = [...list].sort((a, b) => {
+      const aAvail = availableCodes.has(a.code) ? 0 : 1;
+      const bAvail = availableCodes.has(b.code) ? 0 : 1;
+      return aAvail - bAvail;
+    });
     return list;
-  }, [search, activeRegion]);
+  }, [search, activeRegion, availableCodes]);
 
   return (
     <div className="region-selector">
@@ -83,12 +97,13 @@ export default function RegionSelector({ onConnect }: RegionSelectorProps) {
           {filtered.map((country, i) => {
             const isSelected = selectedCountry?.code === country.code;
             const isConnected = connection.isConnected && isSelected;
-            const latency = Math.floor(Math.random() * 80) + 15;
+            const hasProxy = availableCodes.has(country.code);
+            const status = isConnected ? 'connected' : hasProxy ? 'online' : 'offline';
 
             return (
               <motion.button
                 key={country.code}
-                className={`country-card ${isSelected ? 'selected' : ''} ${isConnected ? 'connected' : ''}`}
+                className={`country-card ${isSelected ? 'selected' : ''} ${isConnected ? 'connected' : ''} ${!hasProxy ? 'unavailable' : ''}`}
                 onClick={() => onConnect(country)}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -109,19 +124,9 @@ export default function RegionSelector({ onConnect }: RegionSelectorProps) {
                   <span className="country-code">{country.code}</span>
                 </div>
                 <div className="country-card-footer">
-                  <span className="country-stat">
-                    <Signal size={12} />
-                    <span className={latency < 50 ? 'good' : latency < 100 ? 'ok' : 'slow'}>
-                      {latency}ms
-                    </span>
-                  </span>
-                  <span className="country-stat">
-                    <Zap size={12} />
-                    <span>{Math.floor(Math.random() * 400 + 100)} Mbps</span>
-                  </span>
-                  <span className={`country-status ${country.status}`}>
+                  <span className={`country-status ${status}`}>
                     <MapPin size={10} />
-                    {country.status}
+                    {hasProxy ? (isConnected ? 'connected' : 'available') : 'no proxies'}
                   </span>
                 </div>
               </motion.button>
