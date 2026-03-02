@@ -21,6 +21,8 @@ import https from 'node:https';
 import { URL } from 'node:url';
 
 const TIMEOUT_MS = 30_000;
+const MAX_REDIRECTS = 5;
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
 // ─── ScraperAPI ──────────────────────────────────────────────────────
 // Docs: https://www.scraperapi.com/documentation/
@@ -145,7 +147,7 @@ export async function fetchViaBrightData(targetUrl, countryCode) {
             method: 'GET',
             headers: {
               'Host': parsed.hostname,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'User-Agent': USER_AGENT,
             },
             socket,
             agent: false,
@@ -178,7 +180,7 @@ export async function fetchViaBrightData(targetUrl, countryCode) {
           headers: {
             'Host': parsed.hostname,
             'Proxy-Authorization': `Basic ${auth}`,
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': USER_AGENT,
           },
           timeout: TIMEOUT_MS,
         },
@@ -199,8 +201,12 @@ export async function fetchViaBrightData(targetUrl, countryCode) {
 
 // ─── Helper: fetch a URL (for API-based providers) ───────────────────
 
-function fetchUrl(apiUrl) {
+function fetchUrl(apiUrl, redirectCount = 0) {
   return new Promise((resolve, reject) => {
+    if (redirectCount >= MAX_REDIRECTS) {
+      return reject(new Error('Too many redirects'));
+    }
+
     const parsed = new URL(apiUrl);
     const client = parsed.protocol === 'https:' ? https : http;
 
@@ -215,9 +221,9 @@ function fetchUrl(apiUrl) {
         timeout: TIMEOUT_MS,
       },
       (res) => {
-        // Follow redirects
+        // Follow redirects (with limit)
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          fetchUrl(res.headers.location).then(resolve).catch(reject);
+          fetchUrl(res.headers.location, redirectCount + 1).then(resolve).catch(reject);
           return;
         }
 
@@ -257,6 +263,8 @@ const providers = [
  * @returns {Promise<{status: number, headers: object, body: string, providerUsed: string}|null>}
  */
 export async function fetchViaProviders(targetUrl, countryCode) {
+  if (!countryCode) return null;
+
   for (const { name, fetchFn } of providers) {
     try {
       const result = await fetchFn(targetUrl, countryCode);
