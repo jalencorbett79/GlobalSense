@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Star, Play, Clock, Globe, TrendingUp, Subtitles } from 'lucide-react';
+import { Search, Star, Play, Clock, Globe, TrendingUp, Subtitles, Loader } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { trendingMedia, searchMedia, getMediaByCountry } from '../../utils/mockMedia';
+import { trendingMedia as mockTrending, searchMedia as searchMock, getMediaByCountry as getMediaByCountryMock } from '../../utils/mockMedia';
+import { fetchTrending, fetchSearch, fetchDiscover } from '../../utils/tmdbService';
 import { MediaItem } from '../../types';
 import { getCountryByCode } from '../../utils/countries';
 import './MediaGrid.css';
@@ -16,16 +17,47 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'movie' | 'series' | 'regional'>('all');
   const [sortBy, setSortBy] = useState<'rating' | 'views' | 'year'>('rating');
+  const [media, setMedia] = useState<MediaItem[]>(mockTrending);
+  const [loading, setLoading] = useState(true);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 400);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Fetch data from TMDB whenever filter or search changes
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        if (debouncedQuery) {
+          const data = await fetchSearch(debouncedQuery);
+          if (!cancelled) setMedia(data.results.length > 0 ? data.results : searchMock(debouncedQuery));
+        } else if (activeFilter === 'regional' && selectedCountry) {
+          const data = await fetchDiscover(selectedCountry.code);
+          if (!cancelled) setMedia(data.results.length > 0 ? data.results : getMediaByCountryMock(selectedCountry.code));
+        } else {
+          const data = await fetchTrending();
+          if (!cancelled) setMedia(data.results.length > 0 ? data.results : mockTrending);
+        }
+      } catch {
+        // fallback already set
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [debouncedQuery, activeFilter, selectedCountry]);
 
   const filteredMedia = useMemo(() => {
-    let list = query ? searchMedia(query) : [...trendingMedia];
+    let list = [...media];
 
     if (activeFilter === 'movie') list = list.filter(m => m.type === 'movie');
     if (activeFilter === 'series') list = list.filter(m => m.type === 'series');
-    if (activeFilter === 'regional' && selectedCountry) {
-      list = getMediaByCountry(selectedCountry.code);
-      if (list.length === 0) list = [...trendingMedia]; // Fallback
-    }
 
     list.sort((a, b) => {
       if (sortBy === 'rating') return b.rating - a.rating;
@@ -34,7 +66,7 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
     });
 
     return list;
-  }, [query, activeFilter, sortBy, selectedCountry]);
+  }, [media, activeFilter, sortBy]);
 
   return (
     <div className="media-grid-container">
@@ -89,6 +121,11 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
 
       {/* Grid */}
       <div className="media-grid">
+        {loading ? (
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40, color: 'var(--gs-text-tertiary)' }}>
+            <Loader size={18} className="spin" /> Loading content…
+          </div>
+        ) : (
         <AnimatePresence mode="popLayout">
           {filteredMedia.map((media, i) => {
             const country = getCountryByCode(media.country);
@@ -142,6 +179,7 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
             );
           })}
         </AnimatePresence>
+        )}
       </div>
     </div>
   );

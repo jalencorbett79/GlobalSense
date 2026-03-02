@@ -357,6 +357,10 @@ app.get('/api/proxy/browse', async (req, res) => {
   }
 });
 
+// ─── TMDB API Routes ─────────────────────────────────────────────────
+
+app.use('/api', tmdbRoutes);
+
 // ─── Serve Frontend Static Files ─────────────────────────────────────
 
 const distPath = join(__dirname, '..', '..', 'globestream', 'dist');
