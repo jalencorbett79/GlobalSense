@@ -118,6 +118,12 @@ export async function fetchGeonodeProxies() {
  * Start periodic Geonode proxy fetching (immediate + every 30 min).
  */
 export function startGeonodeFetcher() {
-  fetchGeonodeProxies();
-  setInterval(fetchGeonodeProxies, REFRESH_INTERVAL_MS);
+  fetchGeonodeProxies().catch((err) =>
+    console.error('[Geonode] Initial fetch error:', err.message),
+  );
+  setInterval(() => {
+    fetchGeonodeProxies().catch((err) =>
+      console.error('[Geonode] Refresh error:', err.message),
+    );
+  }, REFRESH_INTERVAL_MS);
 }
