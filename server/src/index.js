@@ -27,6 +27,7 @@ import {
 } from './proxies.js';
 import { startHealthChecker } from './health.js';
 import { startGeonodeFetcher, fetchGeonodeProxies } from './geonode.js';
+import tmdbRoutes from './routes/tmdb.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
