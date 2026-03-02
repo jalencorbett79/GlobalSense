@@ -18,7 +18,9 @@ export default function RegionSelector({ onConnect }: RegionSelectorProps) {
   const [availableCodes, setAvailableCodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    getAvailableCountries().then((codes) => setAvailableCodes(new Set(codes)));
+    getAvailableCountries()
+      .then((codes) => setAvailableCodes(new Set(codes)))
+      .catch(() => {/* backend unreachable — all countries show as unavailable */});
   }, []);
 
   const filtered = useMemo(() => {
