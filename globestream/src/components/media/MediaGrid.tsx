@@ -17,7 +17,7 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'movie' | 'series' | 'regional'>('all');
   const [sortBy, setSortBy] = useState<'rating' | 'views' | 'year'>('rating');
-  const [media, setMedia] = useState<MediaItem[]>(mockTrending);
+  const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -35,16 +35,25 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
       try {
         if (debouncedQuery) {
           const data = await fetchSearch(debouncedQuery);
-          if (!cancelled) setMedia(data.results.length > 0 ? data.results : searchMock(debouncedQuery));
+          if (!cancelled) setMedia(data.results || []);
         } else if (activeFilter === 'regional' && selectedCountry) {
           const data = await fetchDiscover(selectedCountry.code);
-          if (!cancelled) setMedia(data.results.length > 0 ? data.results : getMediaByCountryMock(selectedCountry.code));
+          if (!cancelled) setMedia(data.results || []);
         } else {
           const data = await fetchTrending();
-          if (!cancelled) setMedia(data.results.length > 0 ? data.results : mockTrending);
+          if (!cancelled) setMedia(data.results || []);
         }
       } catch {
-        // fallback already set
+        if (!cancelled) {
+          // Fallback to mock data when TMDB API is unavailable
+          if (debouncedQuery) {
+            setMedia(searchMock(debouncedQuery));
+          } else if (activeFilter === 'regional' && selectedCountry) {
+            setMedia(getMediaByCountryMock(selectedCountry.code));
+          } else {
+            setMedia(mockTrending);
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
