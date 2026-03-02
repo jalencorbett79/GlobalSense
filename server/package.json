@@ -1,0 +1,23 @@
+{
+  "name": "globestream-proxy-server",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "GlobeStream proxy gateway — routes traffic through regional proxy servers",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "helmet": "^8.0.0",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.6",
+    "node-fetch": "^3.3.2",
+    "socks-proxy-agent": "^8.0.4"
+  }
+}

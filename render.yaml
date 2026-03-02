@@ -1,0 +1,18 @@
+# Render Blueprint — single deploy: frontend + backend
+# Connect your repo → Render reads this → everything deploys.
+# One URL serves both the app and the proxy API.
+
+services:
+  - type: web
+    name: globestream
+    runtime: node
+    region: oregon
+    rootDir: server
+    buildCommand: npm install && cd ../globestream && npm install && npx vite build
+    startCommand: node src/index.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /api/proxy/health
+    autoDeploy: true
