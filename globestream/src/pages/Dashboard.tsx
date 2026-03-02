@@ -1,10 +1,12 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Globe, Shield, Play, ArrowDown, Zap, Activity,
-  MapPin, TrendingUp
+  MapPin, TrendingUp, Loader
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { trendingMedia } from '../utils/mockMedia';
+import { trendingMedia as mockTrending } from '../utils/mockMedia';
+import { fetchTrending } from '../utils/tmdbService';
 import { countries } from '../utils/countries';
 import { formatBytes } from '../utils/proxyService';
 import { MediaItem } from '../types';
@@ -17,6 +19,26 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate, onSelectMedia }: DashboardProps) {
   const { connection, selectedCountry, watchHistory, favorites } = useStore();
+  const [media, setMedia] = useState<MediaItem[]>(mockTrending);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await fetchTrending();
+        if (!cancelled && data.results.length > 0) {
+          setMedia(data.results);
+        }
+      } catch {
+        // keep mock data on failure
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = [
     {
@@ -129,27 +151,33 @@ export default function Dashboard({ onNavigate, onSelectMedia }: DashboardProps)
           <button className="see-all" onClick={() => onNavigate('media')}>See all →</button>
         </div>
         <div className="trending-scroll">
-          {trendingMedia.slice(0, 6).map((media, i) => (
+          {loading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 20, color: 'var(--gs-text-tertiary)' }}>
+              <Loader size={16} className="spin" /> Loading trending…
+            </div>
+          ) : (
+            media.slice(0, 6).map((item, i) => (
             <motion.div
-              key={media.id}
+              key={item.id}
               className="trending-card"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 + i * 0.08 }}
-              onClick={() => onSelectMedia(media)}
+              onClick={() => onSelectMedia(item)}
             >
               <div className="trending-poster">
-                <img src={media.thumbnail} alt={media.title} loading="lazy" />
+                <img src={item.thumbnail} alt={item.title} loading="lazy" />
                 <div className="trending-overlay">
                   <Play size={20} fill="white" />
                 </div>
               </div>
               <div className="trending-info">
-                <h4>{media.title}</h4>
-                <span>{media.year} • {media.rating}⭐</span>
+                <h4>{item.title}</h4>
+                <span>{item.year} • {item.rating}⭐</span>
               </div>
             </motion.div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

@@ -25,6 +25,7 @@ import {
   getAllProxies,
 } from './proxies.js';
 import { startHealthChecker } from './health.js';
+import tmdbRoutes from './routes/tmdb.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -255,6 +256,10 @@ app.get('/api/proxy/browse', async (req, res) => {
     res.status(502).send(`Proxy error: ${err.message}`);
   }
 });
+
+// ─── TMDB API Routes ─────────────────────────────────────────────────
+
+app.use('/api', tmdbRoutes);
 
 // ─── Serve Frontend Static Files ─────────────────────────────────────
 
