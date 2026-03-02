@@ -8,7 +8,8 @@
 import { MediaItem } from '../types';
 import { trendingMedia, searchMedia as searchMock, getMediaByCountry } from './mockMedia';
 
-const API_BASE = import.meta.env.VITE_PROXY_API_URL || '';
+const rawBase = import.meta.env.VITE_PROXY_API_URL || '';
+const API_BASE = rawBase.replace(/\/api\/proxy\/?$/, '');
 
 export interface TmdbResponse {
   results: MediaItem[];
