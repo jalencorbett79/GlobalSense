@@ -35,13 +35,13 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
       try {
         if (debouncedQuery) {
           const data = await fetchSearch(debouncedQuery);
-          if (!cancelled) setMedia(data.results);
+          if (!cancelled) setMedia(data.results || []);
         } else if (activeFilter === 'regional' && selectedCountry) {
           const data = await fetchDiscover(selectedCountry.code);
-          if (!cancelled) setMedia(data.results);
+          if (!cancelled) setMedia(data.results || []);
         } else {
           const data = await fetchTrending();
-          if (!cancelled) setMedia(data.results);
+          if (!cancelled) setMedia(data.results || []);
         }
       } catch {
         if (!cancelled) {
