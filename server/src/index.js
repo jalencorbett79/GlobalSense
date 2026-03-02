@@ -26,6 +26,7 @@ import {
   getAllProxies,
 } from './proxies.js';
 import { startHealthChecker } from './health.js';
+import { startGeonodeFetcher, fetchGeonodeProxies } from './geonode.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +36,19 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
+
+// ─── Health Check (standalone, for Render + quick connectivity testing) ─
+
+app.get('/health', (_req, res) => {
+  const proxies = getAllProxies();
+  const alive = proxies.filter((p) => p.alive).length;
+  res.json({
+    status: 'OK',
+    service: 'GlobeStream Proxy Gateway',
+    version: '2.0.0',
+    proxies: { total: proxies.length, alive },
+  });
+});
 
 // ─── Fetch through proxy (core function) ─────────────────────────────
 
@@ -254,6 +268,19 @@ app.get('/api/proxy/health', (_req, res) => {
 });
 
 /**
+ * POST /api/proxy/refresh
+ * Manually trigger a re-fetch of the Geonode proxy list.
+ */
+app.post('/api/proxy/refresh', async (_req, res) => {
+  try {
+    const count = await fetchGeonodeProxies();
+    res.json({ refreshed: true, proxiesAdded: count });
+  } catch (err) {
+    res.status(500).json({ error: 'Refresh failed', detail: err.message });
+  }
+});
+
+/**
  * POST /api/proxy/fetch
  * Body: { url: string, countryCode: string }
  */
@@ -366,4 +393,5 @@ app.listen(PORT, () => {
   console.log(`╚══════════════════════════════════════════╝\n`);
 
   startHealthChecker();
+  startGeonodeFetcher();
 });
