@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Star, Play, Clock, Globe, TrendingUp, Subtitles, Loader } from 'lucide-react';
+import { Search, Star, Play, Clock, Globe, TrendingUp, Subtitles, Loader, Tv } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { trendingMedia as mockTrending, searchMedia as searchMock, getMediaByCountry as getMediaByCountryMock } from '../../utils/mockMedia';
-import { fetchTrending, fetchSearch, fetchDiscover } from '../../utils/tmdbService';
+import { getTrending, searchCatalog, discoverByCountry } from '../../utils/catalogService';
+import { hasStreaming } from '../../utils/streamingService';
 import { MediaItem } from '../../types';
 import { getCountryByCode } from '../../utils/countries';
 import './MediaGrid.css';
@@ -13,7 +14,7 @@ interface MediaGridProps {
 }
 
 export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
-  const { selectedCountry, connection } = useStore();
+  const { selectedCountry } = useStore();
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'movie' | 'series' | 'regional'>('all');
   const [sortBy, setSortBy] = useState<'rating' | 'views' | 'year'>('rating');
@@ -27,25 +28,25 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Fetch data from TMDB whenever filter or search changes
+  // Fetch data — tries TMDB (via backend) then falls back to Stremio Cinemeta
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
         if (debouncedQuery) {
-          const data = await fetchSearch(debouncedQuery);
+          const data = await searchCatalog(debouncedQuery);
           if (!cancelled) setMedia(data.results || []);
         } else if (activeFilter === 'regional' && selectedCountry) {
-          const data = await fetchDiscover(selectedCountry.code);
+          const data = await discoverByCountry(selectedCountry.code);
           if (!cancelled) setMedia(data.results || []);
         } else {
-          const data = await fetchTrending();
+          const data = await getTrending();
           if (!cancelled) setMedia(data.results || []);
         }
       } catch {
         if (!cancelled) {
-          // Fallback to mock data when TMDB API is unavailable
+          // Last-resort fallback to local mock data
           if (debouncedQuery) {
             setMedia(searchMock(debouncedQuery));
           } else if (activeFilter === 'regional' && selectedCountry) {
@@ -110,7 +111,7 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
         <select
           className="sort-select"
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
+          onChange={(e) => setSortBy(e.target.value as 'rating' | 'views' | 'year')}
         >
           <option value="rating">⭐ Top Rated</option>
           <option value="year">📅 Newest</option>
@@ -159,6 +160,9 @@ export default function MediaGrid({ onSelectMedia }: MediaGridProps) {
                   </div>
                   <div className="media-badges">
                     <span className="media-type-badge">{media.type}</span>
+                    {hasStreaming(media) && (
+                      <span className="stream-badge"><Tv size={10} /> Stream</span>
+                    )}
                     {media.subtitles && media.subtitles.length > 0 && (
                       <span className="sub-badge"><Subtitles size={10} /> EN Subs</span>
                     )}

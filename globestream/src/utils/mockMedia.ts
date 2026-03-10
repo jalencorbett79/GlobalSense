@@ -4,6 +4,8 @@ import { generateEnglishSubtitles } from "./subtitles";
 /**
  * Helper — create a media item and auto-attach English subtitles.
  * Every single item in the library gets English subs no matter what.
+ *
+ * IMDB IDs are included so vidsrc.to can provide real embedded streaming.
  */
 function media(m: Omit<MediaItem, "subtitles">): MediaItem {
   return {
@@ -15,6 +17,7 @@ function media(m: Omit<MediaItem, "subtitles">): MediaItem {
 export const trendingMedia: MediaItem[] = [
   media({
     id: "kr-1",
+    imdbId: "tt10329590",
     title: "Crash Landing on You",
     description:
       "A South Korean heiress crash-lands in North Korea after a paragliding accident and falls in love with a North Korean army officer.",
@@ -32,6 +35,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "kr-2",
+    imdbId: "tt10919420",
     title: "Squid Game",
     description:
       "Hundreds of cash-strapped players accept a strange invitation to compete in children's games for a tempting prize.",
@@ -49,6 +53,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "jp-1",
+    imdbId: "tt5311514",
     title: "Your Name",
     description:
       "Two teenagers share a profound, magical connection upon discovering they are swapping bodies.",
@@ -66,6 +71,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "in-1",
+    imdbId: "tt8178634",
     title: "RRR",
     description:
       "A tale of two legendary revolutionaries and their journey away from home before they began fighting for India.",
@@ -83,6 +89,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "es-1",
+    imdbId: "tt6468322",
     title: "Money Heist",
     description:
       "An unusual group of robbers attempt to carry out the most perfect robbery in Spanish history.",
@@ -100,6 +107,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "de-1",
+    imdbId: "tt5753856",
     title: "Dark",
     description:
       "A family saga with a supernatural twist, set in a small German town where the disappearance of two young children exposes the double lives and fractured relationships among four families.",
@@ -117,6 +125,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "fr-1",
+    imdbId: "tt10160804",
     title: "Lupin",
     description:
       "Inspired by the adventures of Arsène Lupin, gentleman thief Assane Diop sets out to avenge his father for an injustice inflicted by a wealthy family.",
@@ -134,6 +143,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "br-1",
+    imdbId: "tt0317248",
     title: "City of God",
     description:
       "In the slums of Rio, two kids' paths diverge as one struggles to become a photographer and the other a drug dealer.",
@@ -151,6 +161,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "th-1",
+    imdbId: "tt6289702",
     title: "Bad Genius",
     description:
       "A genius high school student runs a cheating scheme that spreads internationally.",
@@ -168,6 +179,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "tr-1",
+    imdbId: "tt2094982",
     title: "Magnificent Century",
     description:
       "A historical fiction television series based on the life of Ottoman Sultan Suleiman the Magnificent.",
@@ -202,6 +214,7 @@ export const trendingMedia: MediaItem[] = [
   }),
   media({
     id: "kr-3",
+    imdbId: "tt12571232",
     title: "Vincenzo",
     description:
       "A Korean-Italian mafia lawyer comes to Korea due to a conflict within his organization.",
@@ -215,6 +228,60 @@ export const trendingMedia: MediaItem[] = [
     genres: ["Drama", "Comedy", "Crime"],
     country: "KR",
     language: "ko",
+    type: "series",
+  }),
+  media({
+    id: "kr-4",
+    imdbId: "tt6741278",
+    title: "Parasite",
+    description:
+      "Greed and class discrimination threaten the newly formed symbiotic relationship between the wealthy Park family and the destitute Kim clan.",
+    thumbnail:
+      "https://images.unsplash.com/photo-1534768654272-e97681c3a2c7?w=400&h=225&fit=crop",
+    url: "#",
+    duration: "2h 12m",
+    views: "95M",
+    rating: 8.5,
+    year: 2019,
+    genres: ["Thriller", "Drama", "Comedy"],
+    country: "KR",
+    language: "ko",
+    type: "movie",
+  }),
+  media({
+    id: "jp-2",
+    imdbId: "tt0245429",
+    title: "Spirited Away",
+    description:
+      "During her family's move to the suburbs, a sulky 10-year-old girl wanders into a world ruled by gods, witches, and spirits.",
+    thumbnail:
+      "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=225&fit=crop",
+    url: "#",
+    duration: "2h 5m",
+    views: "78M",
+    rating: 8.6,
+    year: 2001,
+    genres: ["Animation", "Adventure", "Family"],
+    country: "JP",
+    language: "ja",
+    type: "movie",
+  }),
+  media({
+    id: "il-1",
+    imdbId: "tt4933988",
+    title: "Fauda",
+    description:
+      "An Israeli undercover agent and his team pursue a Hamas terrorist known as 'The Panther' who has allegedly returned from the dead.",
+    thumbnail:
+      "https://images.unsplash.com/photo-1508921912186-1d1a45ebb3c1?w=400&h=225&fit=crop",
+    url: "#",
+    duration: "50m",
+    views: "29M",
+    rating: 8.2,
+    year: 2015,
+    genres: ["Thriller", "Action", "Drama"],
+    country: "IL",
+    language: "he",
     type: "series",
   }),
 ];

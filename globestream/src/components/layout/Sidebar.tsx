@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Globe, Shield, Play, Search, Zap, Heart, History, Settings,
-  ChevronLeft, ChevronRight, ChevronDown, Wifi, WifiOff
+  ChevronLeft, ChevronRight, ChevronDown, Wifi, WifiOff, Lock
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import './Sidebar.css';
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { id: 'speed', label: 'Speed Test', icon: <Zap size={20} /> },
   { id: 'favorites', label: 'Favorites', icon: <Heart size={20} /> },
   { id: 'history', label: 'History', icon: <History size={20} /> },
+  { id: 'vpn', label: 'VPN Tools', icon: <Lock size={20} /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
 ];
 

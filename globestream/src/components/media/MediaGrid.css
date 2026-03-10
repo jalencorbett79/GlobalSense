@@ -181,6 +181,19 @@
   backdrop-filter: blur(4px);
 }
 
+.stream-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(99, 102, 241, 0.85);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
 .media-rating {
   position: absolute;
   top: 8px;

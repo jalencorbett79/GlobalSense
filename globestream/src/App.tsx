@@ -14,6 +14,7 @@ import SpeedTestPage from './pages/SpeedTestPage';
 import FavoritesPage from './pages/FavoritesPage';
 import HistoryPage from './pages/HistoryPage';
 import SettingsPage from './pages/SettingsPage';
+import VpnPage from './pages/VpnPage';
 import { connectToProxy } from './utils/proxyService';
 import { Country, MediaItem } from './types';
 
@@ -25,6 +26,7 @@ const viewTitles: Record<string, { title: string; subtitle?: string }> = {
   speed: { title: 'Speed Test', subtitle: 'Test your proxy speed' },
   favorites: { title: 'Favorites', subtitle: 'Your saved content' },
   history: { title: 'History', subtitle: 'Recent activity' },
+  vpn: { title: 'VPN & Proxy Tools', subtitle: 'Open-source self-hosted privacy tools' },
   settings: { title: 'Settings', subtitle: 'Configure your experience' },
 };
 
@@ -86,6 +88,8 @@ export default function App() {
         return <FavoritesPage onSelectMedia={handleSelectMedia} />;
       case 'history':
         return <HistoryPage onSelectMedia={handleSelectMedia} />;
+      case 'vpn':
+        return <VpnPage />;
       case 'settings':
         return <SettingsPage />;
       default:
