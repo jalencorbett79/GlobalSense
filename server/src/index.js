@@ -28,7 +28,10 @@ import {
 import { startHealthChecker } from './health.js';
 import { startGeonodeFetcher, fetchGeonodeProxies } from './geonode.js';
 import { fetchViaProviders, getEnabledProviders } from './providers.js';
+import { startFreeListFetcher } from './freelist.js';
 import tmdbRoutes from './routes/tmdb.js';
+import catalogRoutes from './routes/catalog.js';
+import streamingRoutes from './routes/streaming.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -419,6 +422,14 @@ app.get('/api/proxy/browse', async (req, res) => {
 
 app.use('/api', tmdbRoutes);
 
+// ─── Stremio Cinemeta Catalog Routes (free, no API key) ──────────────
+
+app.use('/api', catalogRoutes);
+
+// ─── Streaming Embed URL Routes ───────────────────────────────────────
+
+app.use('/api', streamingRoutes);
+
 // ─── Serve Frontend Static Files ─────────────────────────────────────
 
 const distPath = join(__dirname, '..', '..', 'globestream', 'dist');
@@ -465,4 +476,5 @@ app.listen(PORT, () => {
 
   startHealthChecker();
   startGeonodeFetcher();
+  startFreeListFetcher();
 });

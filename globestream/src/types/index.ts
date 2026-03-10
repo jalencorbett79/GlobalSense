@@ -69,9 +69,12 @@ export interface SearchResult {
 // ─── Media / Video Types ──────────────────────────────────────────────
 export interface MediaItem {
   id: string;
+  imdbId?: string;   // IMDB ID (e.g. "tt0468569") — used for vidsrc.to streaming
+  tmdbId?: number;   // TMDB numeric ID — used for TMDB API and vidsrc.to streaming
   title: string;
   description: string;
   thumbnail: string;
+  backdrop?: string;
   url: string;
   duration: string;
   views: string;

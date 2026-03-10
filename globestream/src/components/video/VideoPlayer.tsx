@@ -2,12 +2,13 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward,
-  Settings, Heart, Share2, X, Subtitles, Star, Type, Check
+  Settings, Heart, Share2, X, Subtitles, Star, Type, Check, ExternalLink, Monitor
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { MediaItem, SubtitleCue } from '../../types';
 import { languageNames } from '../../utils/countries';
 import { getActiveCue } from '../../utils/subtitles';
+import { getEmbedUrls, hasStreaming, EmbedSource } from '../../utils/streamingService';
 import './VideoPlayer.css';
 
 interface VideoPlayerProps {
@@ -22,6 +23,17 @@ export default function VideoPlayer({ media, onClose }: VideoPlayerProps) {
     toggleFavorite, favorites, addToWatchHistory,
   } = useStore();
 
+  // Streaming state
+  const streamAvailable = hasStreaming(media);
+  const embedSources = useMemo(() => getEmbedUrls(media), [media]);
+  const [activeSource, setActiveSource] = useState<EmbedSource | null>(
+    embedSources.length > 0 ? embedSources[0] : null
+  );
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [season, setSeason] = useState(1);
+  const [episode, setEpisode] = useState(1);
+
+  // Mock player state (used when no stream available)
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration] = useState(3600); // 1 h demo
@@ -119,48 +131,135 @@ export default function VideoPlayer({ media, onClose }: VideoPlayerProps) {
           <X size={20} />
         </button>
 
-        {/* Viewport */}
-        <div className="video-viewport" onClick={() => setIsPlaying(!isPlaying)}>
-          <img src={media.thumbnail} alt={media.title} className="video-poster" />
+        {/* ── Streaming Viewport ── */}
+        {streamAvailable && activeSource ? (
+          <div className="video-viewport stream-viewport">
+            <iframe
+              key={activeSource.url}
+              src={activeSource.url}
+              className="stream-iframe"
+              title={media.title}
+              allowFullScreen
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+            />
 
-          {/* ── Subtitle Overlay ── */}
-          {subtitlesEnabled && activeCue && (
-            <div className="subtitle-overlay">
-              <span
-                className="subtitle-text"
-                style={{ fontSize: fontSizeMap[subtitleFontSize] }}
+            {/* Source picker button */}
+            <div className="stream-controls-bar">
+              {media.type === 'series' && (
+                <div className="episode-controls">
+                  <label>S</label>
+                  <input
+                    type="number" min="1" max="20" value={season}
+                    onChange={(e) => { setSeason(Number(e.target.value)); }}
+                    className="ep-input"
+                  />
+                  <label>E</label>
+                  <input
+                    type="number" min="1" max="50" value={episode}
+                    onChange={(e) => { setEpisode(Number(e.target.value)); }}
+                    className="ep-input"
+                  />
+                  <button
+                    className="ep-go-btn"
+                    onClick={() => {
+                      const sources = getEmbedUrls(media, season, episode);
+                      setActiveSource(sources[0] || null);
+                    }}
+                  >
+                    <Play size={12} fill="white" /> Go
+                  </button>
+                </div>
+              )}
+
+              <button
+                className={`source-btn ${showSourcePicker ? 'active' : ''}`}
+                onClick={() => setShowSourcePicker(!showSourcePicker)}
+                title="Switch streaming source"
               >
-                {activeCue.text}
-              </span>
-            </div>
-          )}
+                <Monitor size={14} /> {activeSource.provider}
+              </button>
 
-          {/* Subtitles-on indicator badge (always visible) */}
-          {subtitlesEnabled && (
-            <div className="subs-active-indicator">
-              <Subtitles size={13} />
-              <span>EN</span>
-            </div>
-          )}
-
-          {/* Play / Pause overlay */}
-          {!isPlaying && (
-            <div className="play-overlay">
-              <motion.button
-                className="big-play-btn"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => { e.stopPropagation(); setIsPlaying(true); }}
+              <a
+                href={activeSource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="open-external-btn"
+                title="Open in new tab"
               >
-                <Play size={40} fill="white" />
-              </motion.button>
+                <ExternalLink size={14} />
+              </a>
             </div>
-          )}
-        </div>
 
-        {/* ── Controls ── */}
+            {/* Source picker dropdown */}
+            <AnimatePresence>
+              {showSourcePicker && (
+                <motion.div
+                  className="source-picker"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <div className="source-picker-title">Streaming Sources</div>
+                  {embedSources.map((src) => (
+                    <button
+                      key={src.provider}
+                      className={`source-option ${activeSource.provider === src.provider ? 'active' : ''}`}
+                      onClick={() => { setActiveSource(src); setShowSourcePicker(false); }}
+                    >
+                      <Monitor size={13} />
+                      <span>{src.label}</span>
+                      {activeSource.provider === src.provider && <Check size={13} className="source-check" />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          /* ── Mock Viewport (no stream available) ── */
+          <div className="video-viewport" onClick={() => setIsPlaying(!isPlaying)}>
+            <img src={media.thumbnail} alt={media.title} className="video-poster" />
+
+            {/* ── Subtitle Overlay ── */}
+            {subtitlesEnabled && activeCue && (
+              <div className="subtitle-overlay">
+                <span
+                  className="subtitle-text"
+                  style={{ fontSize: fontSizeMap[subtitleFontSize] }}
+                >
+                  {activeCue.text}
+                </span>
+              </div>
+            )}
+
+            {/* Subtitles-on indicator badge (always visible) */}
+            {subtitlesEnabled && (
+              <div className="subs-active-indicator">
+                <Subtitles size={13} />
+                <span>EN</span>
+              </div>
+            )}
+
+            {/* Play / Pause overlay */}
+            {!isPlaying && (
+              <div className="play-overlay">
+                <motion.button
+                  className="big-play-btn"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => { e.stopPropagation(); setIsPlaying(true); }}
+                >
+                  <Play size={40} fill="white" />
+                </motion.button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Controls (only shown for mock player, embedded player has its own controls) ── */}
         <AnimatePresence>
-          {showControls && (
+          {!streamAvailable && showControls && (
             <motion.div
               className="player-controls"
               initial={{ opacity: 0, y: 20 }}

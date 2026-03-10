@@ -1,0 +1,282 @@
+.vpn-page {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.vpn-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--gs-bg-card);
+  border: 1px solid var(--gs-border);
+  border-radius: var(--gs-radius-lg);
+}
+.vpn-hero-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--gs-accent-glow);
+  border-radius: var(--gs-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gs-accent-light);
+  flex-shrink: 0;
+}
+.vpn-hero h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gs-text-primary);
+  margin-bottom: 4px;
+}
+.vpn-hero p {
+  font-size: 14px;
+  color: var(--gs-text-secondary);
+  line-height: 1.6;
+}
+.vpn-hero p a {
+  color: var(--gs-accent-light);
+  text-decoration: none;
+}
+.vpn-hero p a:hover { text-decoration: underline; }
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.vpn-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--gs-bg-secondary);
+  padding: 4px;
+  border-radius: var(--gs-radius-lg);
+  border: 1px solid var(--gs-border-light);
+}
+.vpn-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  background: transparent;
+  color: var(--gs-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--gs-radius);
+  cursor: pointer;
+  transition: var(--gs-transition);
+}
+.vpn-tab:hover { background: var(--gs-bg-hover); color: var(--gs-text-primary); }
+.vpn-tab.active {
+  background: var(--gs-accent);
+  color: white;
+}
+
+/* ── Tools Grid ───────────────────────────────────────────────── */
+.vpn-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* ── Tool Card ────────────────────────────────────────────────── */
+.vpn-tool-card {
+  background: var(--gs-bg-card);
+  border: 1px solid var(--gs-border);
+  border-radius: var(--gs-radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: var(--gs-transition);
+}
+.vpn-tool-card:hover {
+  border-color: var(--gs-border-active);
+  background: var(--gs-bg-hover);
+}
+.tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.tool-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tool-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--gs-accent-glow);
+  border-radius: var(--gs-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gs-accent-light);
+  flex-shrink: 0;
+}
+.tool-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gs-text-primary);
+  margin: 0;
+}
+.tool-category {
+  font-size: 11px;
+  color: var(--gs-text-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.tool-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gs-text-tertiary);
+  font-size: 12px;
+}
+.tool-license {
+  padding: 2px 8px;
+  background: var(--gs-bg-tertiary);
+  border: 1px solid var(--gs-border-light);
+  border-radius: var(--gs-radius-full);
+  font-size: 11px;
+  color: var(--gs-text-tertiary);
+  font-weight: 500;
+}
+.tool-description {
+  font-size: 13px;
+  color: var(--gs-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+.tool-expanded {
+  overflow: hidden;
+}
+.tool-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+.tool-feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--gs-success-bg);
+  color: var(--gs-success);
+  border-radius: var(--gs-radius-full);
+  font-size: 11px;
+  font-weight: 500;
+}
+.tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--gs-border-light);
+  margin-top: auto;
+}
+.tool-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--gs-accent-light);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.tool-link:hover { opacity: 0.8; }
+.tool-copy-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gs-bg-tertiary);
+  border: 1px solid var(--gs-border-light);
+  border-radius: var(--gs-radius-sm);
+  color: var(--gs-text-tertiary);
+  cursor: pointer;
+  transition: var(--gs-transition);
+}
+.tool-copy-btn:hover { background: var(--gs-bg-hover); color: var(--gs-text-primary); }
+
+/* ── Guide ────────────────────────────────────────────────────── */
+.vpn-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.guide-section {
+  background: var(--gs-bg-card);
+  border: 1px solid var(--gs-border);
+  border-radius: var(--gs-radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.guide-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.guide-section-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gs-text-primary);
+  margin: 0;
+}
+.guide-icon { color: var(--gs-accent-light); }
+.guide-section > p {
+  font-size: 13px;
+  color: var(--gs-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+.code-block {
+  background: var(--gs-bg-tertiary);
+  border: 1px solid var(--gs-border-light);
+  border-radius: var(--gs-radius);
+  overflow: hidden;
+}
+.code-title {
+  padding: 6px 12px;
+  background: var(--gs-bg-secondary);
+  border-bottom: 1px solid var(--gs-border-light);
+  font-size: 11px;
+  color: var(--gs-text-tertiary);
+  font-weight: 500;
+}
+.code-block pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--gs-text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+.info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--gs-info-bg);
+  border: 1px solid var(--gs-info);
+  border-radius: var(--gs-radius);
+  color: var(--gs-info);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.info-banner svg { flex-shrink: 0; margin-top: 1px; }
+.info-banner strong { font-weight: 600; }
