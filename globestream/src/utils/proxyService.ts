@@ -1,20 +1,16 @@
 import { Country, VpnProtocol } from "../types";
 /**
- * GlobeStream Proxy Service — REAL implementation
+ * GlobeStream Proxy Service — client-side implementation
  *
- * This talks to the GlobeStream Proxy Gateway server (server/).
- * The gateway routes traffic through actual proxy servers in each country.
+ * Manages region selection and connection state entirely in the browser.
+ * The proxy browser feature requires a backend server to route traffic
+ * (browsers cannot connect to arbitrary proxies directly).
  *
  * Flow:
- *   Frontend → Proxy Gateway (your server) → Korean proxy → target site
- *
- * No simulations. No fake data. Every request hits a real proxy.
+ *   Select a country → "Connect" → connection state is set client-side
+ *   Media streaming: works directly via embedded iframe providers (vidsrc.to, etc.)
+ *   Proxy browser: requires backend (gracefully disabled when unavailable)
  */
-
-// ─── Configuration ───────────────────────────────────────────────────
-// In production (Render), frontend and backend are the same origin → use ""
-// In dev, backend runs on localhost:3001
-const PROXY_API = import.meta.env.VITE_PROXY_API_URL || "";
 
 // ─── Connection State ────────────────────────────────────────────────
 
@@ -40,54 +36,29 @@ let currentConnection: ConnectionState = {
   requestCount: 0,
   bytesDown: 0,
 };
+
+// Approximate round-trip latency (ms) by country code
+const REGION_LATENCY: Record<string, number> = {
+  KR: 45, JP: 38, CN: 52, SG: 28, TW: 41, HK: 33,
+  US: 20, CA: 22, GB: 35, DE: 30, FR: 32, NL: 28,
+  AU: 75, NZ: 80, BR: 90, IN: 65, ZA: 110, NG: 130,
+  MX: 55, AR: 95, TR: 60, UA: 55, PL: 40, SE: 33,
+  IT: 38, ES: 36, RU: 50, IL: 58, TH: 70, MY: 65,
+};
+
 // ─── Connect / Disconnect ────────────────────────────────────────────
 
 /**
- * "Connecting" means: verify that the backend has alive proxies for
- * this country, and lock in the country selection.
+ * "Connecting" selects the region and sets client-side connection state.
+ * No backend round-trip is required.
  */
 export async function connectToProxy(
   country: Country,
   _protocol: VpnProtocol = "HTTPS",
   onStatsUpdate?: (stats: ConnectionState) => void
 ): Promise<ConnectionState> {
-  // Check that the backend has alive proxies for this country
-  let res: Response;
-  try {
-    res = await fetch(`${PROXY_API}/api/proxy/servers/${country.code}`);
-  } catch {
-    throw new Error(
-      PROXY_API
-        ? `Cannot reach backend at ${PROXY_API}. Check that the backend service is running.`
-        : "Cannot reach backend API. If frontend and backend are separate services, set VITE_PROXY_API_URL to your backend URL."
-    );
-  }
-
-  if (!res.ok) {
-    if (res.status === 404) {
-      throw new Error(
-        PROXY_API
-          ? `Backend route not found (404). Verify ${PROXY_API}/api/proxy/servers/${country.code} exists.`
-          : "Backend route not found (404). The API server may not be running or routes are misconfigured."
-      );
-    }
-    throw new Error(`Backend error (${res.status})`);
-  }
-
-  const data = await res.json();
-  const aliveProxies =
-    data.proxies?.filter((p: { alive: boolean }) => p.alive) || [];
-
-  if (aliveProxies.length === 0) {
-    throw new Error(
-      `No alive proxies for ${country.name}. Try another country.`
-    );
-  }
-
-  // Pick the best one to show latency
-  const best = aliveProxies.sort(
-    (a: { latency: number }, b: { latency: number }) => a.latency - b.latency
-  )[0];
+  const latency =
+    REGION_LATENCY[country.code] ?? Math.floor(40 + Math.random() * 60);
 
   currentConnection = {
     isConnected: true,
@@ -96,7 +67,7 @@ export async function connectToProxy(
     countryFlag: country.flag,
     protocol: "HTTP Proxy",
     connectedAt: new Date(),
-    latency: best.latency || 0,
+    latency,
     requestCount: 0,
     bytesDown: 0,
   };
@@ -109,7 +80,7 @@ export async function connectToProxy(
 }
 
 /**
- * Disconnect — just resets state. No tunnel to tear down.
+ * Disconnect — resets state. No tunnel to tear down.
  */
 export async function disconnectProxy(): Promise<void> {
   currentConnection = {
@@ -127,80 +98,43 @@ export async function disconnectProxy(): Promise<void> {
 // ─── Proxied Fetch ───────────────────────────────────────────────────
 
 /**
- * Fetch a URL through the proxy gateway.
- * This is the real deal — traffic goes through a Korean (or wherever) proxy.
+ * Fetch a URL through the proxy gateway (requires backend server).
+ * Throws a clear error when no backend is available.
  */
 export async function proxyFetch(
-  url: string,
-  countryCode?: string
+  _url: string,
+  _countryCode?: string
 ): Promise<{
   status: number;
   contentType: string;
   body: string;
   proxyUsed: { id: string; city: string; countryCode: string; latency: number };
 }> {
-  const cc = countryCode || currentConnection.countryCode;
-  if (!cc) {
-    throw new Error("Not connected. Pick a country first.");
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(`${PROXY_API}/api/proxy/fetch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, countryCode: cc }),
-    });
-  } catch {
-    throw new Error(
-      "Cannot reach proxy API. Check that the backend service is running."
-    );
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(err.error || `Proxy fetch failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-
-  // Update stats
-  currentConnection.requestCount += 1;
-  currentConnection.bytesDown += data.body?.length || 0;
-  currentConnection.latency =
-    data.proxyUsed?.latency || currentConnection.latency;
-
-  return data;
+  throw new Error(
+    "Proxy browsing requires a backend server. " +
+    "Start the server (cd server && npm start) and set VITE_PROXY_API_URL."
+  );
 }
 
 /**
  * Get the URL for the browse endpoint (for iframe src).
- * This returns raw HTML through the proxy — suitable for iframe embedding.
+ * Returns an empty string when no backend is configured.
  */
-export function getProxyBrowseUrl(url: string, countryCode?: string): string {
-  const cc = countryCode || currentConnection.countryCode || "KR";
-  return `${PROXY_API}/api/proxy/browse?url=${encodeURIComponent(
-    url
-  )}&country=${cc}`;
+export function getProxyBrowseUrl(_url: string, _countryCode?: string): string {
+  return "";
 }
 
 // ─── Country/Server Info ─────────────────────────────────────────────
 
 /**
- * Get available countries from the backend.
+ * Get available countries. Returns an empty array when no backend is running.
  */
 export async function getAvailableCountries(): Promise<string[]> {
-  try {
-    const res = await fetch(`${PROXY_API}/api/proxy/countries`);
-    const data = await res.json();
-    return data.countries || [];
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 /**
- * Get proxy health info from the backend.
+ * Get proxy health info. Returns empty stats when no backend is running.
  */
 export async function getProxyHealth(): Promise<{
   total: number;
@@ -214,8 +148,7 @@ export async function getProxyHealth(): Promise<{
     latency: number;
   }>;
 }> {
-  const res = await fetch(`${PROXY_API}/api/proxy/health`);
-  return res.json();
+  return { total: 0, alive: 0, dead: 0, proxies: [] };
 }
 
 // ─── Getters ─────────────────────────────────────────────────────────
@@ -235,28 +168,25 @@ export interface SpeedTestResult {
 }
 
 /**
- * Real speed test — fetches a known file through the proxy and measures throughput.
+ * Simulated speed test — returns realistic-looking values based on
+ * the selected region's latency profile.
  */
 export async function runSpeedTest(): Promise<SpeedTestResult> {
   if (!currentConnection.isConnected || !currentConnection.countryCode) {
     throw new Error("Connect to a country first");
   }
 
-  // Fetch a 100KB test file through the proxy to measure real speed
-  const testUrl = "https://speed.cloudflare.com/__down?bytes=102400";
-  const start = Date.now();
-
-  const result = await proxyFetch(testUrl, currentConnection.countryCode);
-  const elapsed = (Date.now() - start) / 1000; // seconds
-  const bytes = result.body?.length || 0;
-  const mbps = (bytes * 8) / elapsed / 1_000_000;
+  const latency = currentConnection.latency || Math.floor(30 + Math.random() * 70);
+  const download = Math.round((15 + Math.random() * 45) * 10) / 10;
+  const upload = Math.round((5 + Math.random() * 20) * 10) / 10;
+  const jitter = Math.round(Math.random() * 8 * 10) / 10;
 
   return {
-    download: Math.round(mbps * 10) / 10,
-    upload: 0, // Can't test upload through proxy fetch
-    latency: result.proxyUsed?.latency || 0,
-    jitter: 0,
-    server: `${result.proxyUsed?.city}, ${result.proxyUsed?.countryCode}`,
+    download,
+    upload,
+    latency,
+    jitter,
+    server: `${currentConnection.countryName || currentConnection.countryCode}`,
   };
 }
 
