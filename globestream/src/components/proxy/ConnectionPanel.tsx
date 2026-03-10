@@ -97,15 +97,15 @@ export default function ConnectionPanel({ onSelectRegion }: ConnectionPanelProps
         <div className="connect-status-text">
           <h2>
             {isConnecting
-              ? 'Verifying proxies...'
+              ? 'Connecting...'
               : connection.isConnected
-              ? 'Connected & Routing'
+              ? 'Region Active'
               : 'Not Connected'}
           </h2>
           <p>
             {connection.isConnected
-              ? `${connection.countryFlag} ${connection.countryName} • ${connection.protocol}`
-              : 'Select a region and connect to route traffic'}
+              ? `${connection.countryFlag} ${connection.countryName} • ${connection.latency}ms`
+              : 'Select a region to unlock regional content'}
           </p>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function ConnectionPanel({ onSelectRegion }: ConnectionPanelProps
           padding: '12px 14px', background: 'var(--gs-bg-card)', border: '1px solid var(--gs-border-light)',
           borderRadius: 'var(--gs-radius)', fontSize: 12, lineHeight: 1.6, color: 'var(--gs-text-secondary)'
         }}>
-          Connect → browse in the <strong>Proxy Browser</strong> tab → all pages load through a real proxy server in your selected country. Websites see the proxy's IP, not yours.
+          Select a region → browse the <strong>Media</strong> tab for regional content → stream movies &amp; shows directly in the app via embedded providers.
         </div>
       </div>
 
