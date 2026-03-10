@@ -32,11 +32,14 @@ function formatCinemetaItem(item) {
   const backdrop = item.background
     || `https://images.metahub.space/background/medium/${imdbId}/img`;
 
-  const rating = parseFloat(item.imdbRating) || 0;
+  // Derive a stable "views" estimate from the IMDB rating and ID
+  const ratingNum = parseFloat(item.imdbRating) || 0;
+  // Simple hash of imdbId to get a stable number between 1-99
+  const idHash = imdbId.split('').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) & 0xffff, 0);
+  const viewsM = Math.max(1, Math.round(ratingNum * 3 + (idHash % 20)));
+  const views = ratingNum > 8 ? `${viewsM * 3}M` : `${viewsM}M`;
+  const rating = ratingNum;
   const year = parseInt(item.releaseInfo) || 0;
-
-  // Estimate views from IMDB rating popularity (cosmetic)
-  const views = rating > 8 ? `${Math.floor(Math.random() * 90 + 10)}M` : `${Math.floor(Math.random() * 9 + 1)}M`;
 
   return {
     id: `cinemeta-${imdbId}`,

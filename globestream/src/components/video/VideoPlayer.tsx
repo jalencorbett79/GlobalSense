@@ -141,7 +141,7 @@ export default function VideoPlayer({ media, onClose }: VideoPlayerProps) {
               title={media.title}
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+              sandbox="allow-scripts allow-forms allow-popups allow-presentation"
             />
 
             {/* Source picker button */}

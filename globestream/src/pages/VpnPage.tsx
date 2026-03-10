@@ -118,14 +118,17 @@ const proxyTools: Tool[] = [
   },
 ];
 
-function ToolCard({ tool }: { tool: Tool }) {
+function ToolCard({ tool, onCopyError }: { tool: Tool; onCopyError: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      onCopyError();
+    });
   };
 
   return (
@@ -240,7 +243,11 @@ export default function VpnPage() {
       {activeTab === 'vpn' && (
         <div className="vpn-tools-grid">
           {vpnTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
+            <ToolCard
+              key={tool.name}
+              tool={tool}
+              onCopyError={() => addToast({ type: 'error', message: 'Failed to copy — clipboard access denied' })}
+            />
           ))}
         </div>
       )}
@@ -249,7 +256,11 @@ export default function VpnPage() {
       {activeTab === 'proxy' && (
         <div className="vpn-tools-grid">
           {proxyTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
+            <ToolCard
+              key={tool.name}
+              tool={tool}
+              onCopyError={() => addToast({ type: 'error', message: 'Failed to copy — clipboard access denied' })}
+            />
           ))}
         </div>
       )}

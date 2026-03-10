@@ -22,11 +22,17 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const CINEMETA_BASE = 'https://v3-cinemeta.strem.io';
 const DEFAULT_POSTER = 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=225&fit=crop';
 
+// Warn once at startup if TMDB_KEY is missing so devs know to configure it
+if (!process.env.TMDB_KEY) {
+  console.warn('[TMDB] TMDB_KEY not configured — falling back to Stremio Cinemeta for all catalog requests. Set TMDB_KEY for richer data.');
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 function tmdbUrl(path, params = {}) {
   const key = process.env.TMDB_KEY;
   if (!key) {
+    // Only log once to avoid spamming logs on every request
     return null;
   }
   const qs = new URLSearchParams({ api_key: key, ...params }).toString();
@@ -56,6 +62,10 @@ function formatCinemetaItem(item) {
     || `https://images.metahub.space/background/medium/${imdbId}/img`;
   const rating = parseFloat(item.imdbRating) || 0;
   const year = parseInt(item.releaseInfo) || 0;
+  // Deterministic views estimate based on rating + stable hash of IMDB ID
+  const idHash = imdbId.split('').reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) & 0xffff, 0);
+  const viewsM = Math.max(1, Math.round(rating * 3 + (idHash % 20)));
+  const views = rating > 8 ? `${viewsM * 3}M` : `${viewsM}M`;
   return {
     id: `cinemeta-${imdbId}`,
     imdbId,
@@ -65,7 +75,7 @@ function formatCinemetaItem(item) {
     backdrop,
     url: '#',
     duration: item.runtime || (item.type === 'series' ? '~45m' : '~2h'),
-    views: `${Math.floor(Math.random() * 50 + 1)}M`,
+    views,
     rating: Math.round(rating * 10) / 10,
     year,
     genres: Array.isArray(item.genres) ? item.genres : [],
