@@ -20,17 +20,19 @@ export default function SpeedTestPage() {
     setResult(null);
     setPhase('latency');
 
-    await new Promise(r => setTimeout(r, 1000));
-    setPhase('download');
-    await new Promise(r => setTimeout(r, 1500));
-    setPhase('upload');
-    await new Promise(r => setTimeout(r, 1500));
-
-    const res = await runSpeedTest();
-    setResult(res);
-    setPhase('done');
-    setIsTestingSpeed(false);
-    addToast({ type: 'success', message: 'Speed test complete!' });
+    try {
+      const res = await runSpeedTest((phase) => {
+        setPhase(phase);
+      });
+      setResult(res);
+      setPhase('done');
+      addToast({ type: 'success', message: 'Speed test complete!' });
+    } catch (err) {
+      addToast({ type: 'error', message: err instanceof Error ? err.message : 'Speed test failed' });
+      setPhase('idle');
+    } finally {
+      setIsTestingSpeed(false);
+    }
   }, [connection.isConnected]);
 
   return (

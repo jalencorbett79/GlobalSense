@@ -12,10 +12,22 @@
 
 import { addProxies } from './proxies.js';
 
-// Country code mappings for common ProxyScrape filter codes
+// Country code mappings for all countries supported in GlobeStream
 const SUPPORTED_COUNTRIES = [
-  'US', 'GB', 'DE', 'FR', 'JP', 'KR', 'CA', 'AU', 'BR', 'IN',
-  'NL', 'SG', 'HK', 'RU', 'UA', 'PL', 'IT', 'ES', 'SE', 'CH',
+  // North America
+  'US', 'CA', 'MX',
+  // South America
+  'BR', 'AR', 'CL', 'CO',
+  // Europe
+  'GB', 'DE', 'FR', 'NL', 'SE', 'CH', 'ES', 'IT', 'PL', 'RO', 'RU', 'UA',
+  // Asia
+  'JP', 'KR', 'SG', 'IN', 'TH', 'TW', 'HK', 'PH', 'ID',
+  // Middle East
+  'AE', 'IL', 'TR',
+  // Africa
+  'ZA', 'NG', 'KE', 'EG',
+  // Oceania
+  'AU', 'NZ',
 ];
 
 /**
@@ -43,12 +55,14 @@ async function fetchProxyScrapeForCountry(countryCode) {
         const port = parseInt(portStr, 10);
         if (!host || !port || port < 1 || port > 65535) return null;
         return {
+          id: `proxyscrape-${countryCode.toLowerCase()}-${host.trim().replace(/\./g, '-')}-${port}`,
           host: host.trim(),
           port,
           countryCode,
           city: countryCode,
           anonymity: 'anonymous',
           protocol: 'http',
+          source: 'proxyscrape',
         };
       })
       .filter(Boolean);

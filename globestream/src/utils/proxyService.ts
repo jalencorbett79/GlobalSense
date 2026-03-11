@@ -9,8 +9,13 @@ import { Country, VpnProtocol } from "../types";
  * Flow:
  *   Select a country → "Connect" → connection state is set client-side
  *   Media streaming: works directly via embedded iframe providers (vidsrc.to, etc.)
- *   Proxy browser: requires backend (gracefully disabled when unavailable)
+ *   Proxy browser: routes traffic through the GlobeStream backend proxy gateway
  */
+
+/** Base URL for the GlobeStream backend API. Falls back to the current origin (single-service deploy). */
+const API_BASE: string =
+  (import.meta.env.VITE_PROXY_API_URL as string | undefined)?.replace(/\/$/, "") ??
+  "";
 
 // ─── Connection State ────────────────────────────────────────────────
 
@@ -99,42 +104,60 @@ export async function disconnectProxy(): Promise<void> {
 
 /**
  * Fetch a URL through the proxy gateway (requires backend server).
- * Throws a clear error when no backend is available.
  */
 export async function proxyFetch(
-  _url: string,
-  _countryCode?: string
+  url: string,
+  countryCode?: string
 ): Promise<{
   status: number;
   contentType: string;
   body: string;
   proxyUsed: { id: string; city: string; countryCode: string; latency: number };
 }> {
-  throw new Error(
-    "Proxy browsing requires a backend server. " +
-    "Start the server (cd server && npm start) and set VITE_PROXY_API_URL."
-  );
+  const base = API_BASE || window.location.origin;
+  const res = await fetch(`${base}/api/proxy/fetch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, countryCode: countryCode ?? currentConnection.countryCode ?? "US" }),
+  });
+  if (!res.ok) {
+    throw new Error(`Proxy fetch failed: HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 /**
  * Get the URL for the browse endpoint (for iframe src).
- * Returns an empty string when no backend is configured.
+ * Constructs the full backend URL so it can be used as an iframe src.
  */
-export function getProxyBrowseUrl(_url: string, _countryCode?: string): string {
-  return "";
+export function getProxyBrowseUrl(url: string, countryCode?: string): string {
+  const base = API_BASE || window.location.origin;
+  const params = new URLSearchParams({
+    url,
+    country: countryCode ?? currentConnection.countryCode ?? "US",
+  });
+  return `${base}/api/proxy/browse?${params.toString()}`;
 }
 
 // ─── Country/Server Info ─────────────────────────────────────────────
 
 /**
- * Get available countries. Returns an empty array when no backend is running.
+ * Get available countries from the backend.
  */
 export async function getAvailableCountries(): Promise<string[]> {
-  return [];
+  try {
+    const base = API_BASE || window.location.origin;
+    const res = await fetch(`${base}/api/proxy/countries`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.countries ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Get proxy health info. Returns empty stats when no backend is running.
+ * Get proxy health info from the backend.
  */
 export async function getProxyHealth(): Promise<{
   total: number;
@@ -148,7 +171,14 @@ export async function getProxyHealth(): Promise<{
     latency: number;
   }>;
 }> {
-  return { total: 0, alive: 0, dead: 0, proxies: [] };
+  try {
+    const base = API_BASE || window.location.origin;
+    const res = await fetch(`${base}/api/proxy/health`);
+    if (!res.ok) return { total: 0, alive: 0, dead: 0, proxies: [] };
+    return res.json();
+  } catch {
+    return { total: 0, alive: 0, dead: 0, proxies: [] };
+  }
 }
 
 // ─── Getters ─────────────────────────────────────────────────────────
@@ -168,25 +198,76 @@ export interface SpeedTestResult {
 }
 
 /**
- * Simulated speed test — returns realistic-looking values based on
- * the selected region's latency profile.
+ * Real speed test — measures actual network performance against the
+ * GlobeStream backend server (the proxy gateway).
+ *
+ * - Latency/Jitter: 5 sequential pings to /api/speedtest/ping
+ * - Download: fetches a 2 MB test payload from /api/speedtest/download
+ * - Upload: POSTs a 1 MB payload to /api/speedtest/upload
+ *
+ * @param onPhase Optional callback called as each phase begins: 'latency' | 'download' | 'upload'
  */
-export async function runSpeedTest(): Promise<SpeedTestResult> {
+export async function runSpeedTest(
+  onPhase?: (phase: "latency" | "download" | "upload") => void
+): Promise<SpeedTestResult> {
   if (!currentConnection.isConnected || !currentConnection.countryCode) {
     throw new Error("Connect to a country first");
   }
 
-  const latency = currentConnection.latency || Math.floor(30 + Math.random() * 70);
-  const download = Math.round((15 + Math.random() * 45) * 10) / 10;
-  const upload = Math.round((5 + Math.random() * 20) * 10) / 10;
-  const jitter = Math.round(Math.random() * 8 * 10) / 10;
+  const base = API_BASE || window.location.origin;
+
+  // 1. Latency + Jitter (5 pings)
+  onPhase?.("latency");
+  const PING_COUNT = 5;
+  const pingTimes: number[] = [];
+  for (let i = 0; i < PING_COUNT; i++) {
+    const t0 = performance.now();
+    await fetch(`${base}/api/speedtest/ping?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    pingTimes.push(performance.now() - t0);
+  }
+  const latency = Math.round(pingTimes.reduce((a, b) => a + b, 0) / PING_COUNT);
+  const jitterRaw = pingTimes
+    .slice(1)
+    .map((t, i) => Math.abs(t - pingTimes[i]));
+  const jitter =
+    Math.round(
+      (jitterRaw.reduce((a, b) => a + b, 0) / jitterRaw.length) * 10
+    ) / 10;
+
+  // 2. Download speed (2 MB test file)
+  onPhase?.("download");
+  const dlStart = performance.now();
+  const dlRes = await fetch(`${base}/api/speedtest/download?size=2`, {
+    cache: "no-store",
+  });
+  const dlBuffer = await dlRes.arrayBuffer();
+  const dlSeconds = (performance.now() - dlStart) / 1000;
+  const download =
+    Math.round(((dlBuffer.byteLength * 8) / dlSeconds / 1_000_000) * 10) / 10;
+
+  // 3. Upload speed (1 MB payload)
+  onPhase?.("upload");
+  const uploadPayload = new Uint8Array(1 * 1024 * 1024);
+  const ulStart = performance.now();
+  await fetch(`${base}/api/speedtest/upload`, {
+    method: "POST",
+    body: uploadPayload,
+    headers: { "Content-Type": "application/octet-stream" },
+  });
+  const ulSeconds = (performance.now() - ulStart) / 1000;
+  const upload =
+    Math.round(
+      ((uploadPayload.byteLength * 8) / ulSeconds / 1_000_000) * 10
+    ) / 10;
 
   return {
     download,
     upload,
     latency,
     jitter,
-    server: `${currentConnection.countryName || currentConnection.countryCode}`,
+    server: `${currentConnection.countryName ?? currentConnection.countryCode} -- GlobeStream Gateway`,
   };
 }
 

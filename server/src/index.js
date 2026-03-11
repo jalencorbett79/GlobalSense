@@ -418,6 +418,56 @@ app.get('/api/proxy/browse', async (req, res) => {
   res.status(503).send(`No proxies or providers available for ${country}`);
 });
 
+// ─── Speed Test Endpoints ─────────────────────────────────────────────
+
+/**
+ * GET /api/speedtest/ping
+ * Minimal response for round-trip latency measurement.
+ */
+app.get('/api/speedtest/ping', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache');
+  res.status(200).end();
+});
+
+/**
+ * GET /api/speedtest/download?size=<MB>
+ * Returns a payload of the requested size (1–20 MB) for download speed testing.
+ * Defaults to 2 MB if not specified.
+ */
+app.get('/api/speedtest/download', (req, res) => {
+  const requestedMb = Math.min(20, Math.max(1, parseInt(req.query.size) || 2));
+  const bytes = requestedMb * 1024 * 1024;
+  // Use a deterministic, non-compressible pattern so routers can't compress it
+  const chunk = Buffer.allocUnsafe(65536);
+  for (let i = 0; i < chunk.length; i++) {
+    chunk[i] = (i * 31 + 17) & 0xff;
+  }
+  res.set('Content-Type', 'application/octet-stream');
+  res.set('Content-Length', String(bytes));
+  res.set('Cache-Control', 'no-store, no-cache');
+  let sent = 0;
+  while (sent < bytes) {
+    const remaining = bytes - sent;
+    const toSend = remaining >= chunk.length ? chunk : chunk.subarray(0, remaining);
+    res.write(toSend);
+    sent += toSend.length;
+  }
+  res.end();
+});
+
+/**
+ * POST /api/speedtest/upload
+ * Accepts an uploaded payload and discards it. Used to measure upload speed.
+ */
+app.post('/api/speedtest/upload', (req, res) => {
+  let bytes = 0;
+  req.on('data', (chunk) => { bytes += chunk.length; });
+  req.on('end', () => {
+    res.set('Cache-Control', 'no-store, no-cache');
+    res.json({ received: bytes });
+  });
+});
+
 // ─── TMDB API Routes ─────────────────────────────────────────────────
 
 app.use('/api', tmdbRoutes);
