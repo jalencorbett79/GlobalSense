@@ -1,10 +1,10 @@
 import { useState, useRef, FormEvent } from 'react';
 import {
   Search, ArrowLeft, ArrowRight, RotateCw, X, Plus,
-  Shield, Lock, ExternalLink, Globe, Bookmark
+  Shield, Lock, ExternalLink, Globe, Bookmark, AlertTriangle
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { getProxyBrowseUrl } from '../../utils/proxyService';
+import { getProxyBrowseUrl, isBackendConfigured } from '../../utils/proxyService';
 import './ProxyBrowser.css';
 
 export default function ProxyBrowser() {
@@ -155,8 +155,18 @@ export default function ProxyBrowser() {
         <div className="security-banner">
           <Shield size={14} />
           <span>
-            Proxy active — Traffic routed through{' '}
-            <strong>{selectedCountry?.flag} {selectedCountry?.name}</strong> • {connection.latency}ms
+            {isBackendConfigured() ? (
+              <>
+                Proxy active — Traffic routed through{' '}
+                <strong>{selectedCountry?.flag} {selectedCountry?.name}</strong> • {connection.latency}ms
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={13} style={{ display: 'inline', marginRight: 4 }} />
+                Direct browsing — proxy backend not configured. Deploy the backend or set{' '}
+                <code>VITE_PROXY_API_URL</code> to enable regional proxy routing.
+              </>
+            )}
           </span>
         </div>
       )}
@@ -185,7 +195,11 @@ export default function ProxyBrowser() {
             <div className="ntp-hero">
               <Globe size={56} className="ntp-globe" />
               <h2 className="gradient-text">Browse the World</h2>
-              <p>Search or enter a URL — pages load through your selected country's proxy</p>
+              <p>
+                {isBackendConfigured()
+                  ? `Search or enter a URL — pages load through your selected country's proxy`
+                  : 'Search or enter a URL — connect a proxy backend to enable regional routing'}
+              </p>
             </div>
 
             <div className="quick-links">

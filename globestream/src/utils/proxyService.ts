@@ -17,6 +17,17 @@ const API_BASE: string =
   (import.meta.env.VITE_PROXY_API_URL as string | undefined)?.replace(/\/$/, "") ??
   "";
 
+/** Returns true when the GlobeStream backend API is explicitly configured. */
+export function isBackendConfigured(): boolean {
+  return API_BASE !== "";
+}
+
+/**
+ * Public speed-test CDN (Cloudflare — CORS-enabled, no backend required).
+ * Used as a fallback when the GlobeStream backend is not deployed.
+ */
+const CF_SPEED = "https://speed.cloudflare.com";
+
 // ─── Connection State ────────────────────────────────────────────────
 
 export interface ConnectionState {
@@ -114,8 +125,13 @@ export async function proxyFetch(
   body: string;
   proxyUsed: { id: string; city: string; countryCode: string; latency: number };
 }> {
-  const base = API_BASE || window.location.origin;
-  const res = await fetch(`${base}/api/proxy/fetch`, {
+  if (!isBackendConfigured()) {
+    throw new Error(
+      "Proxy fetching requires the GlobeStream backend. " +
+      "Set VITE_PROXY_API_URL or start the server (cd server && npm start)."
+    );
+  }
+  const res = await fetch(`${API_BASE}/api/proxy/fetch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, countryCode: countryCode ?? currentConnection.countryCode ?? "US" }),
@@ -128,26 +144,32 @@ export async function proxyFetch(
 
 /**
  * Get the URL for the browse endpoint (for iframe src).
- * Constructs the full backend URL so it can be used as an iframe src.
+ * When the GlobeStream backend is configured, routes through the proxy gateway.
+ * Falls back to the direct target URL when no backend is available.
  */
 export function getProxyBrowseUrl(url: string, countryCode?: string): string {
-  const base = API_BASE || window.location.origin;
+  if (!isBackendConfigured()) {
+    // No backend — return the direct URL so the iframe still attempts to load.
+    // Many sites block iframe embedding; callers should surface a notice.
+    return url;
+  }
   const params = new URLSearchParams({
     url,
     country: countryCode ?? currentConnection.countryCode ?? "US",
   });
-  return `${base}/api/proxy/browse?${params.toString()}`;
+  return `${API_BASE}/api/proxy/browse?${params.toString()}`;
 }
 
 // ─── Country/Server Info ─────────────────────────────────────────────
 
 /**
  * Get available countries from the backend.
+ * Returns an empty array when the backend is not configured or unreachable.
  */
 export async function getAvailableCountries(): Promise<string[]> {
+  if (!isBackendConfigured()) return [];
   try {
-    const base = API_BASE || window.location.origin;
-    const res = await fetch(`${base}/api/proxy/countries`);
+    const res = await fetch(`${API_BASE}/api/proxy/countries`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.countries ?? [];
@@ -158,6 +180,7 @@ export async function getAvailableCountries(): Promise<string[]> {
 
 /**
  * Get proxy health info from the backend.
+ * Returns empty stats when the backend is not configured or unreachable.
  */
 export async function getProxyHealth(): Promise<{
   total: number;
@@ -171,9 +194,9 @@ export async function getProxyHealth(): Promise<{
     latency: number;
   }>;
 }> {
+  if (!isBackendConfigured()) return { total: 0, alive: 0, dead: 0, proxies: [] };
   try {
-    const base = API_BASE || window.location.origin;
-    const res = await fetch(`${base}/api/proxy/health`);
+    const res = await fetch(`${API_BASE}/api/proxy/health`);
     if (!res.ok) return { total: 0, alive: 0, dead: 0, proxies: [] };
     return res.json();
   } catch {
@@ -198,12 +221,17 @@ export interface SpeedTestResult {
 }
 
 /**
- * Real speed test — measures actual network performance against the
- * GlobeStream backend server (the proxy gateway).
+ * Real speed test — measures actual network performance.
  *
- * - Latency/Jitter: 5 sequential pings to /api/speedtest/ping
- * - Download: fetches a 2 MB test payload from /api/speedtest/download
- * - Upload: POSTs a 1 MB payload to /api/speedtest/upload
+ * When the GlobeStream backend is configured (VITE_PROXY_API_URL set) the test
+ * runs against the proxy gateway, giving a picture of proxy-routed throughput:
+ *   - Latency/Jitter: 5 pings to /api/speedtest/ping
+ *   - Download: 2 MB payload from /api/speedtest/download
+ *   - Upload: 1 MB POST to /api/speedtest/upload
+ *
+ * When no backend is available the test falls back to Cloudflare's public
+ * speed-test CDN (speed.cloudflare.com) which is CORS-enabled and requires no
+ * server-side component, so the speed test always works.
  *
  * @param onPhase Optional callback called as each phase begins: 'latency' | 'download' | 'upload'
  */
@@ -214,7 +242,18 @@ export async function runSpeedTest(
     throw new Error("Connect to a country first");
   }
 
-  const base = API_BASE || window.location.origin;
+  const useBackend = isBackendConfigured();
+
+  // Endpoint base for this run
+  const pingUrl = useBackend
+    ? `${API_BASE}/api/speedtest/ping`
+    : `${CF_SPEED}/cdn-cgi/trace`;
+  const downloadUrl = useBackend
+    ? `${API_BASE}/api/speedtest/download?size=2`
+    : `${CF_SPEED}/__down?bytes=2097152`;
+  const uploadUrl = useBackend
+    ? `${API_BASE}/api/speedtest/upload`
+    : `${CF_SPEED}/__up`;
 
   // 1. Latency + Jitter (5 pings)
   onPhase?.("latency");
@@ -222,7 +261,7 @@ export async function runSpeedTest(
   const pingTimes: number[] = [];
   for (let i = 0; i < PING_COUNT; i++) {
     const t0 = performance.now();
-    await fetch(`${base}/api/speedtest/ping?t=${Date.now()}`, {
+    await fetch(`${pingUrl}?t=${Date.now()}`, {
       cache: "no-store",
     });
     pingTimes.push(performance.now() - t0);
@@ -239,7 +278,7 @@ export async function runSpeedTest(
   // 2. Download speed (2 MB test file)
   onPhase?.("download");
   const dlStart = performance.now();
-  const dlRes = await fetch(`${base}/api/speedtest/download?size=2`, {
+  const dlRes = await fetch(downloadUrl, {
     cache: "no-store",
   });
   const dlBuffer = await dlRes.arrayBuffer();
@@ -251,7 +290,7 @@ export async function runSpeedTest(
   onPhase?.("upload");
   const uploadPayload = new Uint8Array(1 * 1024 * 1024);
   const ulStart = performance.now();
-  await fetch(`${base}/api/speedtest/upload`, {
+  await fetch(uploadUrl, {
     method: "POST",
     body: uploadPayload,
     headers: { "Content-Type": "application/octet-stream" },
@@ -262,12 +301,16 @@ export async function runSpeedTest(
       ((uploadPayload.byteLength * 8) / ulSeconds / 1_000_000) * 10
     ) / 10;
 
+  const serverLabel = useBackend
+    ? `${currentConnection.countryName ?? currentConnection.countryCode} — GlobeStream Gateway`
+    : `${currentConnection.countryName ?? currentConnection.countryCode} — Cloudflare CDN`;
+
   return {
     download,
     upload,
     latency,
     jitter,
-    server: `${currentConnection.countryName ?? currentConnection.countryCode} -- GlobeStream Gateway`,
+    server: serverLabel,
   };
 }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Settings, Moon, Sun, Subtitles, Shield, Type, Info, Activity } from 'lucide-react';
-import { getProxyHealth } from '../utils/proxyService';
+import { getProxyHealth, isBackendConfigured } from '../utils/proxyService';
 
 export default function SettingsPage() {
   const {
@@ -111,30 +111,41 @@ export default function SettingsPage() {
           padding: '14px 16px', background: 'var(--gs-bg-card)', border: '1px solid var(--gs-border-light)',
           borderRadius: 'var(--gs-radius)', display: 'flex', flexDirection: 'column', gap: 10
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>Server Health</div>
-            <button onClick={handleCheckHealth} disabled={checkingHealth} style={{
-              padding: '6px 14px', background: 'var(--gs-bg-tertiary)', border: '1px solid var(--gs-border)',
-              borderRadius: 'var(--gs-radius-sm)', color: 'var(--gs-text-primary)', cursor: 'pointer', fontSize: 12, fontWeight: 600
-      }}>
-              <Activity size={12} style={{ display: 'inline', marginRight: 4 }} />
-              {checkingHealth ? 'Checking...' : 'Check Now'}
-            </button>
-          </div>
-          {healthData && (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1, padding: 10, background: 'var(--gs-success-bg)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gs-success)' }}>{healthData.alive}</div>
-                <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Alive</div>
-        </div>
-              <div style={{ flex: 1, padding: 10, background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#ef4444' }}>{healthData.dead}</div>
-                <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Dead</div>
-      </div>
-              <div style={{ flex: 1, padding: 10, background: 'var(--gs-bg-tertiary)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gs-text-primary)' }}>{healthData.total}</div>
-                <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Total</div>
-    </div>
+          {isBackendConfigured() ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>Server Health</div>
+                <button onClick={handleCheckHealth} disabled={checkingHealth} style={{
+                  padding: '6px 14px', background: 'var(--gs-bg-tertiary)', border: '1px solid var(--gs-border)',
+                  borderRadius: 'var(--gs-radius-sm)', color: 'var(--gs-text-primary)', cursor: 'pointer', fontSize: 12, fontWeight: 600
+                }}>
+                  <Activity size={12} style={{ display: 'inline', marginRight: 4 }} />
+                  {checkingHealth ? 'Checking...' : 'Check Now'}
+                </button>
+              </div>
+              {healthData && (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1, padding: 10, background: 'var(--gs-success-bg)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gs-success)' }}>{healthData.alive}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Alive</div>
+                  </div>
+                  <div style={{ flex: 1, padding: 10, background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#ef4444' }}>{healthData.dead}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Dead</div>
+                  </div>
+                  <div style={{ flex: 1, padding: 10, background: 'var(--gs-bg-tertiary)', borderRadius: 'var(--gs-radius-sm)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gs-text-primary)' }}>{healthData.total}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gs-text-tertiary)' }}>Total</div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--gs-text-tertiary)', lineHeight: 1.5 }}>
+              Backend not configured. Set <code>VITE_PROXY_API_URL</code> to your GlobeStream
+              server URL to enable regional proxy routing and health checks.
+              <br />
+              <span style={{ fontSize: 12, opacity: 0.7 }}>Speed tests use Cloudflare CDN when no backend is present.</span>
             </div>
           )}
         </div>
@@ -148,7 +159,9 @@ export default function SettingsPage() {
         <Info size={18} style={{ color: 'var(--gs-text-tertiary)' }} />
         <div>
           <div style={{ fontSize: 14, fontWeight: 500 }}>GlobeStream v2.0.0</div>
-          <div style={{ fontSize: 12, color: 'var(--gs-text-tertiary)' }}>Real proxy routing — no simulations</div>
+          <div style={{ fontSize: 12, color: 'var(--gs-text-tertiary)' }}>
+            {isBackendConfigured() ? 'Real proxy routing via GlobeStream Gateway' : 'Frontend-only mode — speed tests via Cloudflare CDN'}
+          </div>
         </div>
       </div>
     </div>
